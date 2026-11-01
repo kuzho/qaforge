@@ -1,0 +1,58 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "QAForge SQA Test Case Definition",
+  "type": "object",
+  "required": ["id", "title", "steps"],
+  "properties": {
+    "id": { "type": "string", "description": "Unique identifier, e.g. TC-IPE-001" },
+    "title": { "type": "string", "description": "Short descriptive test case title" },
+    "description": { "type": "string", "description": "High-level summary of the scenario" },
+    "objective": { "type": "string", "description": "SQA Quality Goal / Business Rule validated" },
+    "requirement": { "type": "string", "description": "Linked PRD/Jira requirement for regulatory traceability" },
+    "priority": { "enum": ["low", "medium", "high", "critical"], "default": "medium" },
+    "tags": { "type": "array", "items": { "type": "string" } },
+    "preconditions": { "type": "string", "description": "System state required before execution" },
+    "criteria": {
+      "type": "object",
+      "description": "Given-When-Then Acceptance Criteria",
+      "properties": {
+        "given": { "type": "string" },
+        "when": { "type": "string" },
+        "then": { "type": "string" }
+      }
+    },
+    "variables": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "description": "Variables scoped to this test case"
+    },
+    "data": {
+      "type": "array",
+      "items": { "type": "object", "additionalProperties": { "type": "string" } },
+      "description": "Data rows for iterative execution (data-driven)"
+    },
+    "dataFile": { "type": "string", "description": "CSV or JSON data file path relative to .qaforge" },
+    "stopOnFailure": { "type": "boolean", "default": true },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string" },
+          "layer": {
+            "type": "string",
+            "enum": ["Cloud API", "JBoss EJB", "SQL Server", "Robot Desktop", "Manual"],
+            "description": "Target architecture tier"
+          },
+          "request": {
+            "type": "string",
+            "description": "Path to HTTP/SQL request JSON relative to .qaforge/collections. Omit if manual."
+          },
+          "expected": { "type": "string", "description": "Documented expected behavior / audit evidence" },
+          "manual": { "type": "boolean", "default": false, "description": "True if human review or physical plant intervention is required" }
+        }
+      }
+    }
+  }
+}
