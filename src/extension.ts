@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
+import * as path from 'path';
 import { Storage } from './core/storage';
 import { CollectionsProvider, QItem, TestCasesProvider, VariablesProvider, ReportsProvider } from './tree';
 import { VarStore } from './vars';
@@ -7,7 +8,9 @@ import { RequestPanel } from './panel';
 import { ReportViewerPanel } from './reportViewer';
 import { QaTesting } from './testing';
 import { importUniversal } from './core/universalImport';
-import { emptySql } from './core/types';
+import { emptySql, TestCaseDef } from './core/types';
+import { collectTestCaseFiles } from './core/suite';
+import { testCasesToZephyrCsv } from './core/zephyr';
 
 export function activate(ctx: vscode.ExtensionContext) {
   const folder = vscode.workspace.workspaceFolders?.[0];
@@ -119,6 +122,70 @@ export function activate(ctx: vscode.ExtensionContext) {
       refreshAll();
       await vscode.window.showTextDocument(vscode.Uri.file(file));
     }),
+  );
+
+  const exportCasesToZephyr = async (targetFile?: string) => {
+    let files: string[] = [];
+    if (targetFile) {
+      files = [targetFile];
+    } else {
+      files = collectTestCaseFiles(storage);
+    }
+
+    if (files.length === 0) {
+      vscode.window.showWarningMessage('QAForge: No test cases found in .qaforge/testcases.');
+      return;
+    }
+
+    const cases: TestCaseDef[] = [];
+    for (const f of files) {
+      try {
+        cases.push(storage.readTestCase(f));
+      } catch {
+        /* ignore malformed */
+      }
+    }
+
+    if (cases.length === 0) {
+      vscode.window.showWarningMessage('QAForge: Could not read any valid test case definitions.');
+      return;
+    }
+
+    const defaultName = cases.length === 1 ? `${cases[0].id}_zephyr.csv` : 'zephyr_testcases.csv';
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    const defaultUri = workspaceRoot
+      ? vscode.Uri.file(path.join(workspaceRoot, '.qaforge', defaultName))
+      : undefined;
+
+    const saveUri = await vscode.window.showSaveDialog({
+      defaultUri,
+      filters: { 'CSV Files (*.csv)': ['csv'] },
+      title: 'Export Test Cases to Jira Zephyr (CSV)',
+    });
+    if (!saveUri) return;
+
+    const csv = testCasesToZephyrCsv(cases, storage);
+    fs.writeFileSync(saveUri.fsPath, csv, 'utf8');
+
+    const totalSteps = cases.reduce((acc, c) => acc + (c.steps?.length || 0), 0);
+    const act = await vscode.window.showInformationMessage(
+      `QAForge: Exported ${cases.length} test case(s) (${totalSteps} steps) to Zephyr CSV.`,
+      'Open CSV',
+      'Reveal in Explorer',
+    );
+    if (act === 'Open CSV') {
+      await vscode.commands.executeCommand('vscode.open', saveUri);
+    } else if (act === 'Reveal in Explorer') {
+      await vscode.commands.executeCommand('revealFileInOS', saveUri);
+    }
+  };
+
+  reg('qaforge.exportZephyr', () =>
+    guard(async () => exportCasesToZephyr()),
+  );
+
+  reg('qaforge.exportTestCaseZephyr', (item?: QItem) =>
+    guard(async () => exportCasesToZephyr(item?.fsPath)),
   );
 
   reg('qaforge.setSecret', () =>

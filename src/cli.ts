@@ -7,18 +7,25 @@ import {
   resolveVariables, runRequestFile, runTestCase, loadDataRows, parseCsv,
 } from './core/suite';
 import { writeReports } from './core/report';
+import { testCasesToZephyrCsv } from './core/zephyr';
 import type { CaseResult } from './core/types';
 
 const HELP = `QAForge CLI
 
-Usage: qaforge run [targets...] [options]
+Usage:
+  qaforge run [targets...] [options]
+  qaforge export-zephyr [targets...] [options]
 
-Targets (relative to the workspace, default: every test case):
-  testcases/TC-001.json | TC-001      a test case (by file or id)
-  collections/MyCol/Folder            a collection, folder or request file
+Commands:
+  run                   Execute test cases or collections and write reports
+  export-zephyr         Export test cases to Jira Zephyr Scale / Squad CSV format
 
-Options:
-  -w, --workspace <dir>   workspace root containing .qaforge (default: cwd)
+Options for export-zephyr:
+  -w, --workspace <dir> Workspace root containing .qaforge (default: cwd)
+  -o, --out <file>      Target CSV file path (default: zephyr_testcases.csv)
+
+Options for run:
+  -w, --workspace <dir> workspace root containing .qaforge (default: cwd)
   -e, --env <name>        environment to use
       --data <file>       CSV/JSON rows for data-driven test cases (overrides the case's data)
       --var k=v           extra variable (repeatable)
@@ -30,6 +37,40 @@ Secrets: set QAFORGE_SECRET_<NAME> environment variables for each variable liste
 
 async function main() {
   const args = process.argv.slice(2);
+  if (args[0] === 'export-zephyr') {
+    let workspace = process.cwd();
+    let outFile = 'zephyr_testcases.csv';
+    const targets: string[] = [];
+    for (let i = 1; i < args.length; i++) {
+      const a = args[i];
+      if (a === '-w' || a === '--workspace') workspace = path.resolve(args[++i]);
+      else if (a === '-o' || a === '--out') outFile = args[++i];
+      else if (!a.startsWith('-')) targets.push(a);
+    }
+    const storage = new Storage(workspace);
+    const caseFiles: string[] = [];
+    if (targets.length === 0) {
+      caseFiles.push(...collectTestCaseFiles(storage));
+    } else {
+      for (const t of targets) {
+        const asCase = path.join(storage.testCasesDir, t.endsWith('.json') ? path.basename(t) : `${t}.json`);
+        if (fs.existsSync(asCase)) caseFiles.push(asCase);
+        else console.warn(`Warning: test case "${t}" not found in ${storage.testCasesDir}`);
+      }
+    }
+    if (caseFiles.length === 0) {
+      console.error('No test cases found to export.');
+      process.exit(1);
+    }
+    const cases = caseFiles.map((f) => storage.readTestCase(f));
+    const csv = testCasesToZephyrCsv(cases, storage);
+    const outPath = path.isAbsolute(outFile) ? outFile : path.join(workspace, outFile);
+    fs.writeFileSync(outPath, csv, 'utf8');
+    const totalSteps = cases.reduce((acc, c) => acc + (c.steps?.length || 0), 0);
+    console.log(`Exported ${cases.length} test case(s) (${totalSteps} steps) to Zephyr CSV: ${outPath}`);
+    process.exit(0);
+  }
+
   if (args[0] !== 'run' || args.includes('-h') || args.includes('--help')) {
     console.log(HELP);
     process.exit(args[0] === 'run' ? 0 : 1);
