@@ -4,7 +4,7 @@
 > The modern, open-source alternative to Postman, Bruno, and Thunder Client with native SQL Server validation, Gherkin traceability, and AI assistance.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-0.3.0-green.svg)](https://github.com/kuzho/qaforge)
+[![Version](https://img.shields.io/badge/version-0.5.0-green.svg)](https://github.com/kuzho/qaforge)
 
 ---
 
@@ -16,6 +16,7 @@
 - **🔐 Enterprise Authentication**: Bearer token, Basic auth, API keys (header or query), and **OAuth 2.0 Client Credentials (Azure AD / Microsoft Online)** with automatic background token acquisition.
 - **🤖 Native AI Assistant**: Integrated with VS Code Language Model API (`vscode.lm` - Copilot, Claude, Antigravity). Generate comprehensive assertions with a single click and diagnose failures in plain language.
 - **🧪 Formal SQA Test Cases**: Define end-to-end test suites with Quality Objectives, Requirement Traceability IDs, Preconditions, and Gherkin Acceptance Criteria (*Given-When-Then*).
+- **📋 Jira Zephyr Export**: Export test cases with steps, payloads, assertions, and Gherkin criteria directly to Jira Zephyr Scale / Squad CSV format with one click.
 - **📊 Embedded Report Viewer & History**: View rich HTML Dossiers directly inside VS Code or in your browser. Search past executions with instant filtering.
 - **📦 Universal Importer**: Import your existing collections and environments from Bruno or Thunder Client with automatic format detection.
 - **💻 CLI for CI/CD**: Run your suites headless in Jenkins, GitHub Actions, or Azure Pipelines producing JUnit XML, JSON, and HTML reports.
