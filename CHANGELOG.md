@@ -54,3 +54,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Embedded Report Viewer inside VS Code with external browser launch.
 - Live Variables Inspector tree view and filterable Execution Reports history tree view.
 - Headless CLI runner (`qaforge run`) supporting HTML, JUnit XML, and JSON reports.
+
