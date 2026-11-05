@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import * as path from 'path';
 import { interpolate } from './variables';
 import type { KV, RequestDef, ResponseResult } from './types';
 
@@ -97,7 +98,10 @@ export async function executeRequest(
   let body: BodyInit | undefined;
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     if (req.body.type === 'file' && req.body.filePath) {
-      const resolvedPath = interpolate(req.body.filePath, vars);
+      const rawPath = interpolate(req.body.filePath, vars);
+      const resolvedPath = path.isAbsolute(rawPath)
+        ? rawPath
+        : path.resolve(vars.__qaforgeRoot ?? process.cwd(), rawPath);
       if (fs.existsSync(resolvedPath)) {
         body = fs.readFileSync(resolvedPath);
         if (!headers.has('Content-Type')) headers.set('Content-Type', 'application/octet-stream');

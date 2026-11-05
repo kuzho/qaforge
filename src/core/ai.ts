@@ -115,3 +115,54 @@ Provide:
 
   return askModel(model, 'You are an expert QA and SQA MES architect diagnosing test failures.', prompt);
 }
+
+/**
+ * Uses AI to propose an automated fix patch for a failed request.
+ * Can propose query param additions, headers, body fixes, or SQL query corrections.
+ */
+export async function aiProposeFix(
+  req: RequestDef,
+  res: ResponseResult,
+  failedTests: TestResult[],
+): Promise<{ explanation: string; patch: Partial<RequestDef> } | undefined> {
+  const model = await getAiModel();
+  if (!model) return undefined;
+
+  const prompt = `You are a QA automation expert. A test request failed. Propose an automated fix patch.
+Request:
+Kind: ${req.kind || 'http'}
+Method: ${req.method}
+URL: ${req.url}
+Params: ${JSON.stringify(req.params)}
+Headers: ${JSON.stringify(req.headers)}
+Body: ${JSON.stringify(req.body)}
+SQL: ${JSON.stringify(req.sql)}
+
+Response:
+Status: ${res.status}
+Error: ${res.error || ''}
+Body: ${res.body.slice(0, 1500)}
+
+Failed Tests:
+${failedTests.map((t) => `- ${t.name}: ${t.error}`).join('\n')}
+
+Output JSON matching:
+{
+  "explanation": "Brief explanation of what was fixed",
+  "patch": {
+    /* Only fields of RequestDef that need changing, e.g. url, params, headers, body, or sql */
+  }
+}`;
+
+  try {
+    const raw = await askModel(model, 'Respond only with valid raw JSON conforming to the requested format.', prompt);
+    const clean = raw.trim().replace(/^```json\s*/i, '').replace(/\s*```$/i, '');
+    const parsed = JSON.parse(clean);
+    if (parsed && parsed.explanation && parsed.patch) {
+      return parsed;
+    }
+    return undefined;
+  } catch {
+    return undefined;
+  }
+}

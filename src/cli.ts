@@ -53,9 +53,18 @@ async function main() {
       caseFiles.push(...collectTestCaseFiles(storage));
     } else {
       for (const t of targets) {
-        const asCase = path.join(storage.testCasesDir, t.endsWith('.json') ? path.basename(t) : `${t}.json`);
-        if (fs.existsSync(asCase)) caseFiles.push(asCase);
-        else console.warn(`Warning: test case "${t}" not found in ${storage.testCasesDir}`);
+        const direct = path.isAbsolute(t) ? t : path.resolve(workspace, t);
+        const insideCases = path.resolve(storage.testCasesDir, t);
+        const candidate = fs.existsSync(direct) ? direct : fs.existsSync(insideCases) ? insideCases : '';
+        if (candidate && fs.statSync(candidate).isDirectory()) {
+          caseFiles.push(...collectTestCaseFiles(storage, candidate));
+        } else if (candidate && fs.existsSync(candidate)) {
+          caseFiles.push(candidate);
+        } else {
+          const asCase = path.join(storage.testCasesDir, t.endsWith('.json') ? path.basename(t) : `${t}.json`);
+          if (fs.existsSync(asCase)) caseFiles.push(asCase);
+          else console.warn(`Warning: test case "${t}" not found in ${storage.testCasesDir}`);
+        }
       }
     }
     if (caseFiles.length === 0) {

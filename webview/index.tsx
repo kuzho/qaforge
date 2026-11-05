@@ -33,6 +33,17 @@ pre{background:var(--vscode-textCodeBlock-background);padding:10px;overflow:auto
 .muted{opacity:.7;margin-right:12px}
 .name{font-size:1.2em;font-weight:600;background:transparent;border-color:transparent}
 .name:focus{border-color:var(--vscode-focusBorder)}
+.sql-table-wrap{overflow:auto;max-height:55vh}
+table{border-collapse:collapse;width:100%;font-size:.9em}
+th{background:var(--vscode-editor-lineHighlightBackground,#2a2a2a);padding:6px 10px;text-align:left;border-bottom:2px solid var(--vscode-panel-border);white-space:nowrap;position:sticky;top:0}
+td{padding:5px 10px;border-bottom:1px solid var(--vscode-panel-border,#333);vertical-align:top;word-break:break-word;max-width:320px}
+tr:hover td{background:var(--vscode-list-hoverBackground)}
+.sql-meta{font-size:.85em;opacity:.7;margin-bottom:6px}
+.jk{color:var(--vscode-symbolIcon-variableForeground,#9cdcfe)}
+.jstr{color:var(--vscode-debugTokenExpression-string,#ce9178)}
+.jnum{color:var(--vscode-debugTokenExpression-number,#b5cea8)}
+.jbool{color:var(--vscode-debugTokenExpression-boolean,#569cd6)}
+.jnull{color:var(--vscode-debugTokenExpression-error,#f44747);opacity:.8}
 `;
 
 function KVEditor({ rows, onChange }: { rows: KV[]; onChange: (r: KV[]) => void }) {
@@ -87,15 +98,107 @@ function AssertionEditor({ rows, onChange }: { rows: Assertion[]; onChange: (r: 
   );
 }
 
-function prettyBody(body: string, headers: Record<string, string>) {
+function tryParseJson(body: string, headers: Record<string, string>): unknown | null {
   if ((headers['content-type'] ?? '').includes('json') || /^\s*[{[]/.test(body)) {
-    try {
-      return JSON.stringify(JSON.parse(body), null, 2);
-    } catch {
-      /* not json */
-    }
+    try { return JSON.parse(body); } catch { /* not json */ }
   }
-  return body;
+  return null;
+}
+
+function JsonHighlight({ text }: { text: string }) {
+  const html = text.replace(
+    /"((?:[^"\\]|\\.)*?)"\s*:/g, '<span class="jk">"$1"</span>:'
+  ).replace(
+    /:\s*("(?:[^"\\]|\\.)*")/g, ': <span class="jstr">$1</span>'
+  ).replace(
+    /:\s*(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g, ': <span class="jnum">$1</span>'
+  ).replace(
+    /:\s*(true|false)/g, ': <span class="jbool">$1</span>'
+  ).replace(
+    /:\s*(null)/g, ': <span class="jnull">$1</span>'
+  );
+  return <pre dangerouslySetInnerHTML={{ __html: html }} />;
+}
+
+function SqlTable({ parsed }: { parsed: unknown }) {
+  const obj = parsed as { rowCount?: number; rows?: Record<string, unknown>[] };
+  const rows = obj?.rows;
+  if (!Array.isArray(rows) || rows.length === 0) {
+    return (
+      <div>
+        <div className="sql-meta">rowCount: {obj?.rowCount ?? 0} — no rows returned</div>
+        <pre>{JSON.stringify(parsed, null, 2)}</pre>
+      </div>
+    );
+  }
+  const cols = Object.keys(rows[0]);
+  const fmt = (v: unknown) => {
+    if (v === null || v === undefined) return <span className="jnull">null</span>;
+    if (typeof v === 'boolean') return <span className="jbool">{String(v)}</span>;
+    if (typeof v === 'number') return <span className="jnum">{String(v)}</span>;
+    const s = String(v);
+    return s.length > 80 ? <span title={s}>{s.slice(0, 80)}…</span> : s;
+  };
+  return (
+    <div>
+      <div className="sql-meta">{obj.rowCount ?? rows.length} row{rows.length !== 1 ? 's' : ''} · {cols.length} column{cols.length !== 1 ? 's' : ''}</div>
+      <div className="sql-table-wrap">
+        <table>
+          <thead><tr>{cols.map((c) => <th key={c}>{c}</th>)}</tr></thead>
+          <tbody>{rows.map((row, i) => (
+            <tr key={i}>{cols.map((c) => <td key={c}>{fmt(row[c])}</td>)}</tr>
+          ))}</tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function MdView({ text }: { text: string }) {
+  const lines = text.split('\n');
+  const nodes: JSX.Element[] = [];
+  let i = 0;
+  const inlineFormat = (s: string, key: number) => {
+    const parts: (string | JSX.Element)[] = [];
+    let rest = s;
+    let k = 0;
+    // bold **text** or __text__, inline code `code`
+    const re = /(\*\*|__)(.*?)\1|`([^`]+)`/g;
+    let m: RegExpExecArray | null;
+    let last = 0;
+    while ((m = re.exec(rest)) !== null) {
+      if (m.index > last) parts.push(rest.slice(last, m.index));
+      if (m[3] !== undefined) parts.push(<code key={k++} style={{ background: 'var(--vscode-textCodeBlock-background)', padding: '1px 4px', borderRadius: 3 }}>{m[3]}</code>);
+      else parts.push(<strong key={k++}>{m[2]}</strong>);
+      last = m.index + m[0].length;
+    }
+    if (last < rest.length) parts.push(rest.slice(last));
+    return <span key={key}>{parts}</span>;
+  };
+  while (i < lines.length) {
+    const line = lines[i];
+    if (/^```/.test(line)) {
+      const codeLines: string[] = [];
+      i++;
+      while (i < lines.length && !/^```/.test(lines[i])) codeLines.push(lines[i++]);
+      nodes.push(<pre key={i} style={{ background: 'var(--vscode-textCodeBlock-background)', padding: '8px 10px', borderRadius: 4, overflowX: 'auto', margin: '6px 0' }}>{codeLines.join('\n')}</pre>);
+    } else if (/^#{1,3} /.test(line)) {
+      const lvl = line.match(/^(#{1,3}) /)![1].length;
+      const txt = line.replace(/^#{1,3} /, '');
+      const Tag = `h${lvl + 2}` as 'h3' | 'h4' | 'h5';
+      nodes.push(<Tag key={i} style={{ margin: '8px 0 4px' }}>{inlineFormat(txt, i)}</Tag>);
+    } else if (/^[-*] /.test(line)) {
+      nodes.push(<li key={i} style={{ marginLeft: 18 }}>{inlineFormat(line.slice(2), i)}</li>);
+    } else if (/^\d+\. /.test(line)) {
+      nodes.push(<li key={i} style={{ marginLeft: 18 }}>{inlineFormat(line.replace(/^\d+\. /, ''), i)}</li>);
+    } else if (line.trim() === '') {
+      nodes.push(<br key={i} />);
+    } else {
+      nodes.push(<p key={i} style={{ margin: '4px 0' }}>{inlineFormat(line, i)}</p>);
+    }
+    i++;
+  }
+  return <div style={{ lineHeight: 1.6 }}>{nodes}</div>;
 }
 
 function App() {
@@ -103,7 +206,7 @@ function App() {
   const [env, setEnv] = useState<string | null>(null);
   const [res, setRes] = useState<RunOutput | null>(null);
   const [sending, setSending] = useState(false);
-  const [aiLoading, setAiLoading] = useState(false);
+  const [aiLoading, setAiLoading] = useState<'assertions' | 'diagnosis' | null>(null);
   const [aiDiagnosis, setAiDiagnosis] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
   const [reqTab, setReqTab] = useState<ReqTab>('params');
@@ -111,13 +214,13 @@ function App() {
 
   const generateAiAssertions = () => {
     if (!req || !res) return;
-    setAiLoading(true);
+    setAiLoading('assertions');
     vscode.postMessage({ type: 'ai-generate-assertions', request: req, response: res.response });
   };
 
   const diagnoseAiFailure = () => {
     if (!req || !res) return;
-    setAiLoading(true);
+    setAiLoading('diagnosis');
     vscode.postMessage({
       type: 'ai-diagnose',
       request: req,
@@ -139,20 +242,20 @@ function App() {
         setSending(false);
         setAiDiagnosis(null);
       } else if (m.type === 'ai-assertions') {
-        setAiLoading(false);
-        if (req) {
-          const newAssertions = [...req.assertions, ...m.data.assertions];
-          const newCaptures = [...req.captures, ...m.data.captures.map((c: any) => ({ key: c.key, value: c.value, enabled: true }))];
-          setReq({ ...req, assertions: newAssertions, captures: newCaptures });
-          setDirty(true);
-          // Automatically switch tab so user directly sees the newly added assertions!
-          setReqTab('assertions');
-        }
+        setAiLoading(null);
+        setReq((prev) => {
+          if (!prev) return prev;
+          const newAssertions = [...prev.assertions, ...m.data.assertions];
+          const newCaptures = [...prev.captures, ...m.data.captures.map((c: any) => ({ key: c.key, value: c.value, enabled: true }))];
+          return { ...prev, assertions: newAssertions, captures: newCaptures };
+        });
+        setDirty(true);
+        setReqTab('assertions');
       } else if (m.type === 'ai-diagnosis') {
-        setAiLoading(false);
+        setAiLoading(null);
         setAiDiagnosis(m.text);
       } else if (m.type === 'ai-error') {
-        setAiLoading(false);
+        setAiLoading(null);
       } else if (m.type === 'saved') setDirty(false);
     };
     window.addEventListener('message', onMsg);
@@ -178,7 +281,12 @@ function App() {
     return () => window.removeEventListener('keydown', onKey);
   });
 
-  const shown = useMemo(() => (res ? prettyBody(res.response.body, res.response.headers) : ''), [res]);
+  const parsedBody = useMemo(() => (res ? tryParseJson(res.response.body, res.response.headers) : null), [res]);
+  const shown = useMemo(() => {
+    if (!res) return '';
+    if (parsedBody !== null) return JSON.stringify(parsedBody, null, 2);
+    return res.response.body;
+  }, [res, parsedBody]);
   if (!req) return <div>Loading...</div>;
   const r = res?.response as RunOutput['response'];
 
@@ -439,19 +547,23 @@ function App() {
             <span className="muted">{r.durationMs} ms</span>
             <span className="muted">{r.sizeBytes} B</span>
             <span className="muted">{r.resolvedUrl}</span>
-            <button className="ghost" onClick={generateAiAssertions} disabled={aiLoading} title="Analyze response and automatically create assertions and variable captures">
-              {aiLoading ? 'AI Thinking...' : '✨ AI Assertions'}
+            <button className="ghost" onClick={generateAiAssertions} disabled={aiLoading !== null} title="Analyze response and automatically create assertions and variable captures">
+              {aiLoading === 'assertions' ? 'AI Thinking...' : '✨ AI Assertions'}
             </button>
             {!res.passed && (
-              <button className="ghost" onClick={diagnoseAiFailure} disabled={aiLoading} title="Analyze why this request or assertion failed">
-                {aiLoading ? 'AI Thinking...' : '🩺 Diagnose Failure'}
+              <button className="ghost" onClick={diagnoseAiFailure} disabled={aiLoading !== null} title="Analyze why this request or assertion failed">
+                {aiLoading === 'diagnosis' ? 'AI Thinking...' : '🩺 Diagnose Failure'}
               </button>
             )}
           </div>
           {aiDiagnosis && (
             <div style={{ background: 'var(--vscode-editor-inactiveSelectionBackground)', padding: '10px 14px', borderRadius: 4, margin: '8px 0', borderLeft: '3px solid var(--vscode-focusBorder)' }}>
-              <div style={{ fontWeight: 600, marginBottom: 4 }}>🤖 AI Diagnosis:</div>
-              <pre style={{ margin: 0, whiteSpace: 'pre-wrap', background: 'transparent', padding: 0 }}>{aiDiagnosis}</pre>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <span style={{ fontWeight: 600 }}>🤖 AI Diagnosis</span>
+                <button className="ghost" style={{ padding: '2px 10px', fontSize: '0.85em' }}
+                  onClick={() => navigator.clipboard.writeText(aiDiagnosis)}>Copy</button>
+              </div>
+              <MdView text={aiDiagnosis} />
             </div>
           )}
           {r.error && <pre>{r.error}</pre>}
@@ -474,7 +586,13 @@ function App() {
               ))}
             </div>
           )}
-          {resTab === 'body' && <pre>{shown}</pre>}
+          {resTab === 'body' && (
+            isSql && parsedBody !== null
+              ? <SqlTable parsed={parsedBody} />
+              : parsedBody !== null
+                ? <JsonHighlight text={shown} />
+                : <pre>{shown}</pre>
+          )}
           {resTab === 'headers' && <pre>{Object.entries(r.headers).map(([k, v]) => `${k}: ${v}`).join('\n')}</pre>}
           {resTab === 'logs' && <pre>{res.logs.join('\n') || '(no console output)'}</pre>}
         </div>

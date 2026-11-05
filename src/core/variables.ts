@@ -6,7 +6,7 @@
  * - Environment, global, and runtime variables: {{varName}}
  * Unknown variables are left untouched.
  */
-export function interpolate(text: string, vars: Record<string, string>): string {
+export function interpolate(text: string, vars: Record<string, string>, workspaceRoot?: string): string {
   if (!text) return text;
   return text.replace(/\{\{\s*([\w.$\-]+)\s*\}\}/g, (match, name: string) => {
     if (name === '$guid' || name === '$uuid') {
@@ -19,6 +19,7 @@ export function interpolate(text: string, vars: Record<string, string>): string 
     if (name === '$timestamp') return String(Date.now());
     if (name === '$isoTimestamp') return new Date().toISOString();
     if (name === '$randomInt') return String(Math.floor(Math.random() * 1000000));
+    if (name === '$workspaceRoot') return workspaceRoot ?? match;
     if (name.startsWith('$env.')) return process.env[name.slice(5)] ?? match;
     return Object.prototype.hasOwnProperty.call(vars, name) ? vars[name] : match;
   });

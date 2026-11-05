@@ -5,7 +5,7 @@ import { emptyRequest, emptySql, type Environment, type Globals, type RequestDef
 const safeName = (name: string) => name.trim().replace(/[<>:"/\\|?*]+/g, '-');
 
 export class Storage {
-  constructor(private readonly workspaceRoot: string) {}
+  constructor(readonly workspaceRoot: string) {}
 
   get root() {
     return path.join(this.workspaceRoot, '.qaforge');
@@ -45,6 +45,11 @@ export class Storage {
 
   readTestCase(file: string): TestCaseDef {
     return JSON.parse(fs.readFileSync(file, 'utf8')) as TestCaseDef;
+  }
+
+  saveTestCase(file: string, tc: TestCaseDef) {
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, JSON.stringify(tc, null, 2) + '\n', 'utf8');
   }
 
   createTestCase(id: string, title: string): string {

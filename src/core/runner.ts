@@ -1,5 +1,6 @@
 import { executeRequest } from './http';
 import { executeSql } from './sql';
+import { executeFileDrop } from './fileDrop';
 import { evaluateAssertion } from './assertions';
 import { evalExpression, runScript } from './script';
 import { interpolate } from './variables';
@@ -13,6 +14,7 @@ export async function runRequest(
   def: RequestDef,
   envVars: Record<string, string>,
   runtime: Record<string, string>,
+  workspaceRoot?: string,
 ): Promise<RunOutput> {
   const req: RequestDef = JSON.parse(JSON.stringify(def));
   const vars: Record<string, string> = { ...envVars, ...runtime };
@@ -20,16 +22,31 @@ export async function runRequest(
   const logs: string[] = [];
 
   for (const v of req.preVars.filter((x) => x.enabled && x.key)) {
-    const value = interpolate(v.value, vars);
+    const value = interpolate(v.value, vars, workspaceRoot);
     vars[v.key] = value;
     runtime[v.key] = value;
   }
 
-  const pre = await runScript(req.preScript, { req, vars, runtime });
+  const pre = await runScript(req.preScript, { req, vars, runtime, workspaceRoot });
   tests.push(...pre.tests);
   logs.push(...pre.logs);
 
-  let response = req.kind === 'sql' ? await executeSql(req, vars) : await executeRequest(req, vars);
+  if (req.kind === 'script') {
+    const post = await runScript(req.postScript, { req, vars, runtime, workspaceRoot });
+    tests.push(...post.tests);
+    logs.push(...post.logs);
+    const t = await runScript(req.tests, { req, vars, runtime, workspaceRoot });
+    tests.push(...t.tests);
+    logs.push(...t.logs);
+    const dummyResponse = { ok: true, status: 0, statusText: 'script', durationMs: 0, sizeBytes: 0, headers: {}, body: '', resolvedUrl: '' };
+    return { response: dummyResponse, tests, logs, passed: tests.every((t) => t.passed) };
+  }
+
+  let response = req.kind === 'sql'
+    ? await executeSql(req, vars)
+    : req.kind === 'fileDrop'
+    ? await executeFileDrop(req, vars, runtime, workspaceRoot || '')
+    : await executeRequest(req, vars);
 
   // Auto-retry / polling if configured
   if (req.retry && req.retry.enabled && req.retry.maxAttempts > 1) {
@@ -46,7 +63,11 @@ export async function runRequest(
     while (!satisfied && attempt < retry.maxAttempts) {
       logs.push(`[Retry ${attempt}/${retry.maxAttempts}] Condition "${retry.path} ${retry.op} ${retry.expected}" not met yet. Waiting ${retry.intervalMs}ms...`);
       await new Promise((r) => setTimeout(r, retry.intervalMs));
-      response = req.kind === 'sql' ? await executeSql(req, vars) : await executeRequest(req, vars);
+      response = req.kind === 'sql'
+        ? await executeSql(req, vars)
+        : req.kind === 'fileDrop'
+        ? await executeFileDrop(req, vars, runtime, workspaceRoot || '')
+        : await executeRequest(req, vars);
       attempt++;
       satisfied = evaluateAssertion(condAssertion, response, vars).passed;
     }
@@ -68,10 +89,10 @@ export async function runRequest(
     for (const a of req.assertions.filter((x) => x.enabled)) {
       tests.push(evaluateAssertion(a, response, vars));
     }
-    const post = await runScript(req.postScript, { req, res: response, vars, runtime });
+    const post = await runScript(req.postScript, { req, res: response, vars, runtime, workspaceRoot });
     tests.push(...post.tests);
     logs.push(...post.logs);
-    const t = await runScript(req.tests, { req, res: response, vars, runtime });
+    const t = await runScript(req.tests, { req, res: response, vars, runtime, workspaceRoot });
     tests.push(...t.tests);
     logs.push(...t.logs);
   } else {

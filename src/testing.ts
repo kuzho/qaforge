@@ -110,7 +110,34 @@ export class QaTesting {
     const queue = roots.flatMap((r) => this.leaves(r)).filter((i) => !excluded.has(i.id));
     queue.forEach((i) => run.enqueued(i));
 
-    const envName = this.getEnv();
+    let envName = this.getEnv();
+
+    // If running a single test case with environments defined, prompt to pick one
+    const singleCaseItem = queue.length === 1 && queue[0].id.startsWith(this.storage.testCasesDir) ? queue[0] : undefined;
+    if (singleCaseItem) {
+      try {
+        const tc = this.storage.readTestCase(singleCaseItem.id);
+        if (tc.environments?.length) {
+          const availableEnvs = this.storage.listEnvironments().map((e) => e.name);
+          const picks = tc.environments.filter((e) => availableEnvs.includes(e));
+          if (picks.length === 1) {
+            envName = picks[0];
+          } else if (picks.length > 1) {
+            const current = envName && picks.includes(envName) ? envName : undefined;
+            const chosen = await vscode.window.showQuickPick(
+              picks.map((e) => ({ label: e, description: e === current ? '$(check) active' : '' })),
+              { placeHolder: `Select environment for ${tc.id}`, title: 'QAForge: Environment Selection' },
+            );
+            if (!chosen) { run.end(); return; }
+            envName = chosen.label;
+          }
+        }
+      } catch { /* malformed tc, continue with current env */ }
+    }
+
+    // Notify user that execution has started
+    const runLabel = queue.length === 1 ? queue[0].label : `${queue.length} tests`;
+    vscode.window.showInformationMessage(`QAForge ▶ Running: ${runLabel}${envName ? ` [${envName}]` : ''}…`);
     const started = Date.now();
     const results: CaseResult[] = [];
     const sharedRuntime: Record<string, string> = {};
@@ -173,11 +200,12 @@ export class QaTesting {
     }
 
     const passed = results.filter((r) => r.passed).length;
-    run.appendOutput(nl(`\nDone: ${passed}/${results.length} passed\n`));
+    const totalSteps = results.reduce((acc, r) => acc + r.iterations.flatMap((it) => it.steps).length, 0);
+    const passedSteps = results.reduce((acc, r) => acc + r.iterations.flatMap((it) => it.steps).filter((s) => s.passed).length, 0);
+    run.appendOutput(nl(`\nDone: ${passed}/${results.length} cases passed | ${passedSteps}/${totalSteps} steps passed\n`));
     run.end();
 
     if (results.length) {
-      // Determine a meaningful target name from queue items
       let targetName = 'Run';
       if (queue.length === 1) {
         targetName = results[0].id || results[0].title;
@@ -193,7 +221,7 @@ export class QaTesting {
       writeReports(this.storage, suite);
       this.onRunComplete?.();
       const act = await vscode.window.showInformationMessage(
-        `QAForge: ${passed}/${results.length} passed`,
+        `QAForge ✅ ${passed}/${results.length} cases | ${passedSteps}/${totalSteps} steps passed`,
         'Open report',
       );
       if (act) {

@@ -2,7 +2,7 @@
   "name": "qaforge",
   "displayName": "QAForge",
   "description": "API + SQL testing and QA test case management: collections, environments, secrets, assertions, flows, data-driven runs and reports.",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "publisher": "kuzho",
   "repository": {
     "type": "git",
@@ -26,86 +26,431 @@
     "automation",
     "ai"
   ],
-  "engines": { "vscode": "^1.90.0" },
-  "categories": ["Testing", "Other"],
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Testing",
+    "Other"
+  ],
   "main": "./dist/extension.js",
-  "bin": { "qaforge": "dist/cli.js" },
+  "bin": {
+    "qaforge": "dist/cli.js"
+  },
   "activationEvents": [],
   "contributes": {
     "viewsContainers": {
       "activitybar": [
-        { "id": "qaforge", "title": "QAForge", "icon": "media/icon.svg" }
+        {
+          "id": "qaforge",
+          "title": "QAForge",
+          "icon": "media/icon.svg"
+        }
       ]
     },
     "views": {
       "qaforge": [
-        { "id": "qaforge.collections", "name": "Collections" },
-        { "id": "qaforge.testcases", "name": "Test Cases" },
-        { "id": "qaforge.variables", "name": "Variables (Live Inspector)" },
-        { "id": "qaforge.reports", "name": "Execution Reports (History)" }
+        {
+          "id": "qaforge.collections",
+          "name": "Collections"
+        },
+        {
+          "id": "qaforge.testcases",
+          "name": "Test Cases"
+        },
+        {
+          "id": "qaforge.variables",
+          "name": "Variables"
+        },
+        {
+          "id": "qaforge.reports",
+          "name": "Execution Reports"
+        }
       ]
     },
     "jsonValidation": [
-      { "fileMatch": "**/.qaforge/testcases/*.json", "url": "./schemas/testcase.schema.json" }
+      {
+        "fileMatch": "**/.qaforge/testcases/*.json",
+        "url": "./schemas/testcase.schema.json"
+      }
     ],
     "commands": [
-      { "command": "qaforge.newCollection", "title": "QAForge: New Collection", "icon": "$(new-folder)" },
-      { "command": "qaforge.newFolder", "title": "New Folder" },
-      { "command": "qaforge.newRequest", "title": "New HTTP Request", "icon": "$(add)" },
-      { "command": "qaforge.newSqlRequest", "title": "New SQL Step", "icon": "$(database)" },
-      { "command": "qaforge.newTestCase", "title": "QAForge: New Test Case", "icon": "$(add)" },
-      { "command": "qaforge.openRequest", "title": "Open Request" },
-      { "command": "qaforge.deleteItem", "title": "Delete" },
-      { "command": "qaforge.renameItem", "title": "Rename" },
-      { "command": "qaforge.runItem", "title": "Run", "icon": "$(play)" },
-      { "command": "qaforge.selectEnvironment", "title": "QAForge: Select Environment", "icon": "$(globe)" },
-      { "command": "qaforge.setSecret", "title": "QAForge: Set Secret Variable" },
-      { "command": "qaforge.protectSecrets", "title": "QAForge: Move Plaintext Secrets to SecretStorage" },
-      { "command": "qaforge.editGlobals", "title": "QAForge: Edit Global Variables" },
-      { "command": "qaforge.showVariables", "title": "QAForge: Show Resolved Variables" },
-      { "command": "qaforge.clearVariables", "title": "QAForge: Clear Runtime Variables" },
-      { "command": "qaforge.openReport", "title": "QAForge: Open Last Report", "icon": "$(graph)" },
-      { "command": "qaforge.openReportFile", "title": "View Report in VS Code", "icon": "$(preview)" },
-      { "command": "qaforge.openReportInBrowser", "title": "Open Report in External Browser", "icon": "$(globe)" },
-      { "command": "qaforge.filterReports", "title": "Filter / Search Reports", "icon": "$(search)" },
-      { "command": "qaforge.clearReportsFilter", "title": "Clear Filter", "icon": "$(clear-all)" },
-      { "command": "qaforge.deleteReport", "title": "Delete Report", "icon": "$(trash)" },
-      { "command": "qaforge.clearReports", "title": "Clear All Reports", "icon": "$(trash)" },
-      { "command": "qaforge.addVariable", "title": "Add Variable", "icon": "$(add)" },
-      { "command": "qaforge.editVariable", "title": "Edit Variable & Value", "icon": "$(edit)" },
-      { "command": "qaforge.deleteVariable", "title": "Delete Variable", "icon": "$(trash)" },
-      { "command": "qaforge.importCollection", "title": "QAForge: Import Collection / Environment", "icon": "$(cloud-download)" },
-      { "command": "qaforge.exportZephyr", "title": "QAForge: Export Test Cases to Zephyr (CSV)", "icon": "$(export)" },
-      { "command": "qaforge.exportTestCaseZephyr", "title": "Export to Zephyr (CSV)", "icon": "$(export)" },
-      { "command": "qaforge.refresh", "title": "QAForge: Refresh", "icon": "$(refresh)" }
+      {
+        "command": "qaforge.newCollection",
+        "title": "QAForge: New Collection",
+        "icon": "$(new-folder)"
+      },
+      {
+        "command": "qaforge.newFolder",
+        "title": "New Folder"
+      },
+      {
+        "command": "qaforge.newRequest",
+        "title": "New HTTP Request",
+        "icon": "$(add)"
+      },
+      {
+        "command": "qaforge.newSqlRequest",
+        "title": "New SQL Step",
+        "icon": "$(database)"
+      },
+      {
+        "command": "qaforge.newTestCase",
+        "title": "QAForge: New Test Case",
+        "icon": "$(add)"
+      },
+      {
+        "command": "qaforge.openRequest",
+        "title": "Open Request"
+      },
+      {
+        "command": "qaforge.deleteItem",
+        "title": "Delete"
+      },
+      {
+        "command": "qaforge.renameItem",
+        "title": "Rename"
+      },
+      {
+        "command": "qaforge.runItem",
+        "title": "Run",
+        "icon": "$(play)"
+      },
+      {
+        "command": "qaforge.selectEnvironment",
+        "title": "QAForge: Select Environment",
+        "icon": "$(globe)"
+      },
+      {
+        "command": "qaforge.setSecret",
+        "title": "QAForge: Set Secret Variable"
+      },
+      {
+        "command": "qaforge.protectSecrets",
+        "title": "QAForge: Move Plaintext Secrets to SecretStorage"
+      },
+      {
+        "command": "qaforge.editGlobals",
+        "title": "QAForge: Edit Global Variables"
+      },
+      {
+        "command": "qaforge.showVariables",
+        "title": "QAForge: Show Resolved Variables"
+      },
+      {
+        "command": "qaforge.clearVariables",
+        "title": "QAForge: Clear Runtime Variables"
+      },
+      {
+        "command": "qaforge.openReport",
+        "title": "QAForge: Open Last Report",
+        "icon": "$(graph)"
+      },
+      {
+        "command": "qaforge.openReportFile",
+        "title": "View Report in VS Code",
+        "icon": "$(preview)"
+      },
+      {
+        "command": "qaforge.openReportInBrowser",
+        "title": "Open Report in External Browser",
+        "icon": "$(globe)"
+      },
+      {
+        "command": "qaforge.filterReports",
+        "title": "Filter / Search Reports",
+        "icon": "$(search)"
+      },
+      {
+        "command": "qaforge.clearReportsFilter",
+        "title": "Clear Filter",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "qaforge.deleteReport",
+        "title": "Delete Report",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "qaforge.clearReports",
+        "title": "Clear All Reports",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "qaforge.addVariable",
+        "title": "Add Variable",
+        "icon": "$(add)"
+      },
+      {
+        "command": "qaforge.editVariable",
+        "title": "Edit Variable & Value",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "qaforge.deleteVariable",
+        "title": "Delete Variable",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "qaforge.importCollection",
+        "title": "QAForge: Import Collection / Environment",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "qaforge.exportZephyr",
+        "title": "QAForge: Export Test Cases to Zephyr",
+        "icon": "$(export)"
+      },
+      {
+        "command": "qaforge.exportTestCaseZephyr",
+        "title": "Export to Zephyr",
+        "icon": "$(export)"
+      },
+      {
+        "command": "qaforge.refresh",
+        "title": "QAForge: Refresh",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "qaforge.stepTestCase",
+        "title": "QAForge: Run Step-by-Step (Interactive Debugger)",
+        "icon": "$(debug-step-over)"
+      },
+      {
+        "command": "qaforge.runStep",
+        "title": "Run Step",
+        "icon": "$(play)"
+      },
+      {
+        "command": "qaforge.runFromStep",
+        "title": "Run from Here to End",
+        "icon": "$(play-circle)"
+      },
+      {
+        "command": "qaforge.openStepRequest",
+        "title": "Open Step Request",
+        "icon": "$(go-to-file)"
+      },
+      {
+        "command": "qaforge.checkEnvironment",
+        "title": "QAForge: Environment Health Check & Diagnostics",
+        "icon": "$(pulse)"
+      },
+      {
+        "command": "qaforge.compareEnvironments",
+        "title": "QAForge: Compare Environments (Drift Detector)",
+        "icon": "$(diff)"
+      },
+      {
+        "command": "qaforge.publishZephyr",
+        "title": "QAForge: Publish Results to Jira Zephyr Scale API",
+        "icon": "$(cloud-upload)"
+      },
+      {
+        "command": "qaforge.newFileDropRequest",
+        "title": "New Simulator / File Drop Step",
+        "icon": "$(package)"
+      },
+      {
+        "command": "qaforge.addStepToTestCase",
+        "title": "Add Request to Test Case...",
+        "icon": "$(insert)"
+      },
+      {
+        "command": "qaforge.saveReportAs",
+        "title": "Save Report As...",
+        "icon": ""
+      }
     ],
     "menus": {
       "view/title": [
-        { "command": "qaforge.newCollection", "when": "view == qaforge.collections", "group": "navigation@1" },
-        { "command": "qaforge.importCollection", "when": "view == qaforge.collections", "group": "navigation@2" },
-        { "command": "qaforge.selectEnvironment", "when": "view == qaforge.collections", "group": "navigation@3" },
-        { "command": "qaforge.refresh", "when": "view == qaforge.collections", "group": "navigation@4" },
-        { "command": "qaforge.newTestCase", "when": "view == qaforge.testcases", "group": "navigation@1" },
-        { "command": "qaforge.exportZephyr", "when": "view == qaforge.testcases", "group": "navigation@2" },
-        { "command": "qaforge.openReport", "when": "view == qaforge.testcases", "group": "navigation@3" },
-        { "command": "qaforge.addVariable", "when": "view == qaforge.variables", "group": "navigation@1" },
-        { "command": "qaforge.clearVariables", "when": "view == qaforge.variables", "group": "navigation@2" },
-        { "command": "qaforge.filterReports", "when": "view == qaforge.reports", "group": "navigation@1" },
-        { "command": "qaforge.clearReports", "when": "view == qaforge.reports", "group": "navigation@2" }
+        {
+          "command": "qaforge.newCollection",
+          "when": "view == qaforge.collections",
+          "group": "navigation@1"
+        },
+        {
+          "command": "qaforge.importCollection",
+          "when": "view == qaforge.collections",
+          "group": "navigation@2"
+        },
+        {
+          "command": "qaforge.selectEnvironment",
+          "when": "view == qaforge.collections",
+          "group": "navigation@3"
+        },
+        {
+          "command": "qaforge.refresh",
+          "when": "view == qaforge.collections",
+          "group": "navigation@4"
+        },
+        {
+          "command": "qaforge.newTestCase",
+          "when": "view == qaforge.testcases",
+          "group": "navigation@1"
+        },
+        {
+          "command": "qaforge.exportZephyr",
+          "when": "view == qaforge.testcases",
+          "group": "navigation@2"
+        },
+        {
+          "command": "qaforge.openReport",
+          "when": "view == qaforge.testcases",
+          "group": "navigation@3"
+        },
+        {
+          "command": "qaforge.addVariable",
+          "when": "view == qaforge.variables",
+          "group": "navigation@1"
+        },
+        {
+          "command": "qaforge.clearVariables",
+          "when": "view == qaforge.variables",
+          "group": "navigation@2"
+        },
+        {
+          "command": "qaforge.filterReports",
+          "when": "view == qaforge.reports",
+          "group": "navigation@1"
+        },
+        {
+          "command": "qaforge.clearReports",
+          "when": "view == qaforge.reports",
+          "group": "navigation@2"
+        },
+        {
+          "command": "qaforge.checkEnvironment",
+          "when": "view == qaforge.collections",
+          "group": "navigation@5"
+        },
+        {
+          "command": "qaforge.compareEnvironments",
+          "when": "view == qaforge.collections",
+          "group": "navigation@6"
+        },
+        {
+          "command": "qaforge.publishZephyr",
+          "when": "view == qaforge.testcases",
+          "group": "navigation@4"
+        }
       ],
       "view/item/context": [
-        { "command": "qaforge.openReportFile", "when": "view == qaforge.reports", "group": "0_open@1" },
-        { "command": "qaforge.openReportInBrowser", "when": "view == qaforge.reports", "group": "0_open@2" },
-        { "command": "qaforge.deleteReport", "when": "view == qaforge.reports", "group": "1_del" },
-        { "command": "qaforge.editVariable", "when": "view == qaforge.variables", "group": "0_edit" },
-        { "command": "qaforge.deleteVariable", "when": "view == qaforge.variables", "group": "1_del" },
-        { "command": "qaforge.runItem", "when": "view == qaforge.collections || view == qaforge.testcases", "group": "0_run" },
-        { "command": "qaforge.exportTestCaseZephyr", "when": "view == qaforge.testcases && viewItem == testcase", "group": "1_export" },
-        { "command": "qaforge.newRequest", "when": "view == qaforge.collections && viewItem != request", "group": "1_new" },
-        { "command": "qaforge.newSqlRequest", "when": "view == qaforge.collections && viewItem != request", "group": "1_new" },
-        { "command": "qaforge.newFolder", "when": "view == qaforge.collections && viewItem != request", "group": "1_new" },
-        { "command": "qaforge.renameItem", "when": "view == qaforge.collections", "group": "2_edit" },
-        { "command": "qaforge.deleteItem", "when": "view == qaforge.collections || view == qaforge.testcases", "group": "2_edit" }
+        {
+          "command": "qaforge.openReportFile",
+          "when": "view == qaforge.reports",
+          "group": "0_open@1"
+        },
+        {
+          "command": "qaforge.openReportInBrowser",
+          "when": "view == qaforge.reports",
+          "group": "0_open@2"
+        },
+        {
+          "command": "qaforge.deleteReport",
+          "when": "view == qaforge.reports",
+          "group": "1_del"
+        },
+        {
+          "command": "qaforge.editVariable",
+          "when": "view == qaforge.variables",
+          "group": "0_edit"
+        },
+        {
+          "command": "qaforge.deleteVariable",
+          "when": "view == qaforge.variables",
+          "group": "1_del"
+        },
+        {
+          "command": "qaforge.runItem",
+          "when": "view == qaforge.collections || view == qaforge.testcases",
+          "group": "0_run"
+        },
+        {
+          "command": "qaforge.exportTestCaseZephyr",
+          "when": "view == qaforge.testcases && viewItem == testcase",
+          "group": "1_export"
+        },
+        {
+          "command": "qaforge.newRequest",
+          "when": "view == qaforge.collections && viewItem != request",
+          "group": "1_new"
+        },
+        {
+          "command": "qaforge.newSqlRequest",
+          "when": "view == qaforge.collections && viewItem != request",
+          "group": "1_new"
+        },
+        {
+          "command": "qaforge.newFolder",
+          "when": "view == qaforge.collections && viewItem != request",
+          "group": "1_new"
+        },
+        {
+          "command": "qaforge.renameItem",
+          "when": "view == qaforge.collections",
+          "group": "2_edit"
+        },
+        {
+          "command": "qaforge.deleteItem",
+          "when": "view == qaforge.collections || view == qaforge.testcases",
+          "group": "2_edit"
+        },
+        {
+          "command": "qaforge.stepTestCase",
+          "when": "view == qaforge.testcases && viewItem == testcase",
+          "group": "inline@2"
+        },
+        {
+          "command": "qaforge.stepTestCase",
+          "when": "view == qaforge.testcases && viewItem == testcase",
+          "group": "0_run@2"
+        },
+        {
+          "command": "qaforge.runStep",
+          "when": "view == qaforge.testcases && viewItem == testcase_step",
+          "group": "inline@1"
+        },
+        {
+          "command": "qaforge.runStep",
+          "when": "view == qaforge.testcases && viewItem == testcase_step",
+          "group": "0_run@1"
+        },
+        {
+          "command": "qaforge.stepTestCase",
+          "when": "view == qaforge.testcases && viewItem == testcase_step",
+          "group": "0_run@2"
+        },
+        {
+          "command": "qaforge.runFromStep",
+          "when": "view == qaforge.testcases && viewItem == testcase_step",
+          "group": "0_run@3"
+        },
+        {
+          "command": "qaforge.openStepRequest",
+          "when": "view == qaforge.testcases && viewItem == testcase_step",
+          "group": "1_open"
+        },
+        {
+          "command": "qaforge.newFileDropRequest",
+          "when": "view == qaforge.collections && viewItem != request",
+          "group": "1_new@4"
+        },
+        {
+          "command": "qaforge.addStepToTestCase",
+          "when": "view == qaforge.collections && viewItem == request",
+          "group": "1_edit"
+        },
+        {
+          "command": "qaforge.saveReportAs",
+          "when": "view == qaforge.reports",
+          "group": "0_open@3"
+        },
+        {
+          "command": "qaforge.saveReportAs",
+          "when": "view == qaforge.reports && viewItem == report",
+          "group": "inline@1"
+        }
       ]
     }
   },

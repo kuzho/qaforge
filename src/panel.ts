@@ -94,7 +94,7 @@ export class RequestPanel {
         const envName = this.getEnv();
         const envVars = await this.vars.resolve(envName);
         const started = Date.now();
-        const output = await runRequest(msg.request, envVars, this.runtime);
+        const output = await runRequest(msg.request, envVars, this.runtime, this.storage.root.replace(/[\/\\]\.qaforge$/, ''));
         this.post({ type: 'response', result: output });
 
         // Register individual execution in history as well!

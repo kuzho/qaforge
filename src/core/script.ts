@@ -1,4 +1,6 @@
 import * as vm from 'vm';
+import * as fs from 'fs';
+import * as path from 'path';
 import { expect } from 'chai';
 import { parseBody } from './assertions';
 import type { RequestDef, ResponseResult, TestResult } from './types';
@@ -11,6 +13,8 @@ export interface ScriptContext {
   vars: Record<string, string>;
   /** variables that persist across requests during the session */
   runtime: Record<string, string>;
+  /** workspace root path — available in scripts as workspaceRoot */
+  workspaceRoot?: string;
 }
 
 export interface ScriptOutput {
@@ -48,6 +52,7 @@ export async function runScript(code: string, ctx: ScriptContext): Promise<Scrip
     ctx.vars[k] = s;
     ctx.runtime[k] = s;
   };
+  if (ctx.workspaceRoot) ctx.vars['$workspaceRoot'] = ctx.workspaceRoot;
   const bru = {
     getEnvVar: (k: string) => ctx.vars[k],
     setEnvVar: setVar,
@@ -95,6 +100,9 @@ export async function runScript(code: string, ctx: ScriptContext): Promise<Scrip
     describe: (_n: string, fn: () => void) => fn(),
     console: { log: (...a: unknown[]) => logs.push(fmt(...a)), error: (...a: unknown[]) => logs.push(fmt(...a)), warn: (...a: unknown[]) => logs.push(fmt(...a)) },
     setTimeout,
+    fs,
+    path,
+    workspaceRoot: ctx.workspaceRoot ?? '',
   };
   if (ctx.res) sandbox.res = makeRes(ctx.res);
 
