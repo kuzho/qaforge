@@ -2038,12 +2038,18 @@ export function activate(ctx: vscode.ExtensionContext) {
           cancellable: false,
         },
         async () => {
+          const junitPath = path.join(storage.reportsDir, 'last.junit.xml');
+          let junitXml: string | undefined;
+          if (fs.existsSync(junitPath)) {
+            try { junitXml = fs.readFileSync(junitPath, 'utf8'); } catch { /* ignore */ }
+          }
           const res = await publishResultsToZephyr(cases, {
             jiraBaseUrl: jiraUrl,
             apiToken: apiToken!,
             projectKey,
             cycleName,
             environment: getEnv(),
+            junitXml,
           });
           if (res.ok) {
             const act = await vscode.window.showInformationMessage(

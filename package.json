@@ -2,7 +2,7 @@
   "name": "qaforge",
   "displayName": "QAForge",
   "description": "API + SQL testing and QA test case management: collections, environments, secrets, assertions, flows, data-driven runs and reports.",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "publisher": "kuzho",
   "repository": {
     "type": "git",
