@@ -97,7 +97,7 @@ export class RequestPanel {
         const output = await runRequest(msg.request, envVars, this.runtime, this.storage.root.replace(/[\/\\]\.qaforge$/, ''));
         this.post({ type: 'response', result: output });
 
-        // Register individual execution in history as well!
+        // Register individual execution in history with complete details!
         const singleCase = requestAsCase(
           {
             name: msg.request.name,
@@ -108,6 +108,12 @@ export class RequestPanel {
             tests: output.tests,
             logs: output.logs,
             error: output.response.error,
+            responseBody: output.response.body,
+            method: output.request?.method || (msg.request.kind === 'sql' ? 'SQL' : msg.request.kind === 'fileDrop' ? 'FILE' : msg.request.method),
+            url: output.request?.url || output.response.resolvedUrl,
+            requestHeaders: output.request?.headers || output.response.requestHeaders,
+            requestBody: output.request?.body || output.response.requestBody,
+            responseHeaders: output.response.headers,
           },
           this.storage.collectionsDir,
         );

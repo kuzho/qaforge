@@ -61,6 +61,7 @@ export async function executeSql(req: RequestDef, vars: Record<string, string>):
     }
 
     const queryStr = interpolate(def.query, vars);
+    const sqlReqHeaders = { Server: server, Database: database, User: user };
     const result = await pool.request().query(queryStr);
     const rows = (result.recordset ?? []) as unknown[];
     const payload: Record<string, unknown> = { rowCount: rows.length, rows };
@@ -76,10 +77,19 @@ export async function executeSql(req: RequestDef, vars: Record<string, string>):
       headers: {},
       body,
       resolvedUrl,
+      requestHeaders: sqlReqHeaders,
+      requestBody: queryStr,
     };
   } catch (e) {
     // If connection dropped or broke, invalidate cache
     poolCache.delete(cacheKey);
-    return { ...base, durationMs: Math.round(performance.now() - started), resolvedUrl, error: (e as Error).message };
+    return {
+      ...base,
+      durationMs: Math.round(performance.now() - started),
+      resolvedUrl,
+      error: (e as Error).message,
+      requestHeaders: { Server: server, Database: database, User: user },
+      requestBody: def.query ? interpolate(def.query, vars) : undefined,
+    };
   }
 }

@@ -1,31 +1,20 @@
 import { closeAllSqlPools } from './core/sql';
 import { checkEnvironmentHealth, compareEnvironments } from './core/envDoctor';
 import { publishResultsToZephyr } from './core/zephyrApi';
-import type { CaseResult } from './core/types';
+import type { CaseResult, RequestResult } from './core/types';
 import * as vscode from 'vscode';
-
 import * as fs from 'fs';
-
 import * as path from 'path';
-
 import { Storage } from './core/storage';
-
 import { CollectionsProvider, QItem, TestCasesProvider, VariablesProvider, ReportsProvider } from './tree';
-
 import { VarStore } from './vars';
-
 import { RequestPanel } from './panel';
-
 import { ReportViewerPanel } from './reportViewer';
-
 import { QaTesting } from './testing';
-
 import { importUniversal } from './core/universalImport';
-
 import { emptySql, TestCaseDef } from './core/types';
-
-import { collectTestCaseFiles, resolveStepFile, runRequestFile } from './core/suite';
-
+import { collectTestCaseFiles, resolveStepFile, runRequestFile, makeSuite, requestAsCase } from './core/suite';
+import { writeReports } from './core/report';
 import { testCasesToZephyrXml, testCasesToZephyrExcel } from './core/zephyr';
 
 
@@ -1183,16 +1172,18 @@ export function activate(ctx: vscode.ExtensionContext) {
 
 
       if (result.error) {
-
         out.appendLine(`\nError: ${result.error}`);
-
       }
-
-
 
       varsProvider.refresh();
 
-
+      // Register step execution in reports
+      try {
+        const singleCase = requestAsCase(result, storage.collectionsDir);
+        const stepSuite = makeSuite(`${tc.id} - Step ${item.stepIndex + 1} (${step.name})`, envName, t0, [singleCase]);
+        writeReports(storage, stepSuite);
+        reportsProvider.refresh();
+      } catch { /* ignore report write err */ }
 
       if (result.passed) {
 
@@ -1260,44 +1251,29 @@ export function activate(ctx: vscode.ExtensionContext) {
 
 
 
+    const t0All = Date.now();
+    const stepResults: RequestResult[] = [];
     let allPassed = true;
 
     for (let i = startIndex; i < total; i++) {
-
       const step = tc.steps[i];
-
       if (step.manual || !step.request) {
-
         out.appendLine(`ℹ [${i + 1}/${total}] Manual step: ${step.name}`);
-
         continue;
-
       }
-
-
 
       const file = resolveStepFile(storage, step.request);
-
       if (!file) {
-
         out.appendLine(`✘ [${i + 1}/${total}] Step file not found: ${step.request}`);
-
         allPassed = false;
-
         break;
-
       }
 
-
-
       const t0 = Date.now();
-
       try {
-
         const r = await runRequestFile(storage, file, executionVars, runtime);
-
         const duration = Date.now() - t0;
-
+        stepResults.push(r);
         varsProvider.refresh();
 
         const passIcon = r.passed ? '✔' : '✘';
@@ -1342,16 +1318,28 @@ export function activate(ctx: vscode.ExtensionContext) {
 
     }
 
-
+    if (stepResults.length) {
+      try {
+        const caseResult: CaseResult = {
+          id: tc.id,
+          title: `${tc.title} (Steps ${startIndex + 1}-${total})`,
+          requirement: tc.requirement,
+          priority: tc.priority,
+          passed: allPassed,
+          durationMs: Date.now() - t0All,
+          manualSteps: 0,
+          iterations: [{ index: 1, data: {}, steps: stepResults, passed: allPassed }],
+        };
+        const fromStepSuite = makeSuite(`${tc.id} (Steps ${startIndex + 1}-${total})`, envName, t0All, [caseResult]);
+        writeReports(storage, fromStepSuite);
+        reportsProvider.refresh();
+      } catch { /* ignore */ }
+    }
 
     if (allPassed) {
-
       vscode.window.showInformationMessage(`✔ Steps ${startIndex + 1}-${total} completed successfully!`);
-
     } else {
-
       vscode.window.showErrorMessage(`✘ Step execution failed during steps ${startIndex + 1}-${total}.`);
-
     }
 
   });

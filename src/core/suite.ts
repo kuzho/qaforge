@@ -102,43 +102,30 @@ export function collectTestCaseFiles(storage: Storage, targetDir?: string): stri
 
 
 export async function runRequestFile(
-
   storage: Storage,
-
   file: string,
-
   envVars: Record<string, string>,
-
   runtime: Record<string, string>,
-
 ): Promise<RequestResult> {
-
   const def = storage.readRequest(file);
-
   const out = await runRequest(def, envVars, runtime, storage.workspaceRoot);
-
+  const method = out.request?.method || (def.kind === 'sql' ? 'SQL' : def.kind === 'fileDrop' ? 'FILE' : def.kind === 'script' ? 'SCRIPT' : def.method);
   return {
-
     name: def.name,
-
     file,
-
     passed: out.passed,
-
     status: out.response.status,
-
     durationMs: out.response.durationMs,
-
     tests: out.tests,
-
     logs: out.logs,
-
     error: out.response.error,
-
     responseBody: out.response.body,
-
+    method,
+    url: out.request?.url || out.response.resolvedUrl,
+    requestHeaders: out.request?.headers || out.response.requestHeaders,
+    requestBody: out.request?.body || out.response.requestBody,
+    responseHeaders: out.response.headers,
   };
-
 }
 
 

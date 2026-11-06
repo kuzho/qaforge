@@ -35,21 +35,11 @@ export class QaTesting {
     this.items.clear();
     this.controller.items.replace([]);
 
-    const cases = collectTestCaseFiles(this.storage);
-    if (cases.length) {
-      const root = this.controller.createTestItem(this.storage.testCasesDir, 'Test Cases', vscode.Uri.file(this.storage.testCasesDir));
-      this.items.set(this.storage.testCasesDir, root);
-      for (const file of cases) {
-        let label = path.basename(file, '.json');
-        try {
-          const tc = this.storage.readTestCase(file);
-          label = `${tc.id} ${tc.title}`;
-        } catch { /* malformed */ }
-        const item = this.controller.createTestItem(file, label, vscode.Uri.file(file));
-        this.items.set(file, item);
-        root.children.add(item);
+    if (fs.existsSync(this.storage.testCasesDir)) {
+      const tcRoot = this.buildTestCases(this.storage.testCasesDir, 'Test Cases');
+      if (tcRoot.children.size > 0) {
+        this.controller.items.add(tcRoot);
       }
-      this.controller.items.add(root);
     }
 
     const dir = this.storage.collectionsDir;
@@ -57,6 +47,28 @@ export class QaTesting {
     for (const e of fs.readdirSync(dir, { withFileTypes: true }).filter((x) => x.isDirectory()).sort(byName)) {
       this.controller.items.add(this.build(path.join(dir, e.name), e.name));
     }
+  }
+
+  private buildTestCases(dir: string, label: string): vscode.TestItem {
+    const item = this.controller.createTestItem(dir, label, vscode.Uri.file(dir));
+    this.items.set(dir, item);
+    if (!fs.existsSync(dir)) return item;
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const e of entries.filter((x) => x.isDirectory()).sort(byName)) {
+      item.children.add(this.buildTestCases(path.join(dir, e.name), e.name));
+    }
+    for (const e of entries.filter((x) => x.isFile() && x.name.endsWith('.json')).sort(byName)) {
+      const file = path.join(dir, e.name);
+      let name = path.basename(e.name, '.json');
+      try {
+        const tc = this.storage.readTestCase(file);
+        name = `${tc.id} ${tc.title}`;
+      } catch { /* malformed */ }
+      const child = this.controller.createTestItem(file, name, vscode.Uri.file(file));
+      this.items.set(file, child);
+      item.children.add(child);
+    }
+    return item;
   }
 
   private build(dir: string, label: string): vscode.TestItem {
@@ -77,12 +89,34 @@ export class QaTesting {
     return item;
   }
 
-  /** Runs a collection, folder, request or test case from the QAForge trees. */
+  /** Runs a collection, folder, request or test case from the QAForge trees. Supports cascade execution. */
   async runPath(fsPath: string) {
-    const item = this.items.get(fsPath);
-    if (!item) return;
-    const source = new vscode.CancellationTokenSource();
-    await this.run(new vscode.TestRunRequest([item]), source.token);
+    let item = this.items.get(fsPath);
+    if (!item) {
+      this.refresh();
+      item = this.items.get(fsPath);
+    }
+    if (item) {
+      const source = new vscode.CancellationTokenSource();
+      await this.run(new vscode.TestRunRequest([item]), source.token);
+      return;
+    }
+
+    // Fallback: If fsPath is a directory or path on disk, gather all matching TestItems
+    if (fs.existsSync(fsPath)) {
+      const norm = path.normalize(fsPath).toLowerCase();
+      const matching: vscode.TestItem[] = [];
+      for (const [key, testItem] of this.items.entries()) {
+        const normKey = path.normalize(key).toLowerCase();
+        if (normKey.startsWith(norm) && key.endsWith('.json')) {
+          matching.push(testItem);
+        }
+      }
+      if (matching.length) {
+        const source = new vscode.CancellationTokenSource();
+        await this.run(new vscode.TestRunRequest(matching), source.token);
+      }
+    }
   }
 
   async openReport() {

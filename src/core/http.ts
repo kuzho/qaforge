@@ -137,6 +137,14 @@ export async function executeRequest(
     }
   }
 
+  const reqHeaders: Record<string, string> = {};
+  headers.forEach((v, k) => (reqHeaders[k] = v));
+  const reqBodyStr = typeof body === 'string'
+    ? body
+    : Buffer.isBuffer(body)
+    ? `[Binary data: ${body.length} bytes]`
+    : undefined;
+
   const started = performance.now();
   try {
     const res = await fetch(resolvedUrl, {
@@ -157,6 +165,8 @@ export async function executeRequest(
       headers: resHeaders,
       body: buf.toString('utf8'),
       resolvedUrl,
+      requestHeaders: reqHeaders,
+      requestBody: reqBodyStr,
     };
   } catch (e) {
     const err = e as Error & { cause?: { message?: string } };
@@ -170,6 +180,8 @@ export async function executeRequest(
       body: '',
       error: err.cause?.message ? `${err.message}: ${err.cause.message}` : err.message,
       resolvedUrl,
+      requestHeaders: reqHeaders,
+      requestBody: reqBodyStr,
     };
   }
 }

@@ -38,8 +38,14 @@ export async function runRequest(
     const t = await runScript(req.tests, { req, vars, runtime, workspaceRoot });
     tests.push(...t.tests);
     logs.push(...t.logs);
-    const dummyResponse = { ok: true, status: 0, statusText: 'script', durationMs: 0, sizeBytes: 0, headers: {}, body: '', resolvedUrl: '' };
-    return { response: dummyResponse, tests, logs, passed: tests.every((t) => t.passed) };
+    const dummyResponse = { ok: true, status: 0, statusText: 'script', durationMs: 0, sizeBytes: 0, headers: {}, body: '', resolvedUrl: 'script://local' };
+    return {
+      response: dummyResponse,
+      tests,
+      logs,
+      passed: tests.every((t) => t.passed),
+      request: { method: 'SCRIPT', url: 'script://local', body: [req.preScript, req.postScript, req.tests].filter(Boolean).join('\n') },
+    };
   }
 
   let response = req.kind === 'sql'
@@ -99,6 +105,13 @@ export async function runRequest(
     tests.push({ name: 'request', passed: false, error: response.error });
   }
 
-  return { response, tests, logs, passed: !response.error && tests.every((t) => t.passed) };
+  const method = req.kind === 'sql' ? 'SQL' : req.kind === 'fileDrop' ? 'FILE' : req.method;
+  const requestInfo = {
+    method,
+    url: response.resolvedUrl || (req.url ? interpolate(req.url, vars) : ''),
+    headers: response.requestHeaders,
+    body: response.requestBody,
+  };
+  return { response, tests, logs, passed: !response.error && tests.every((t) => t.passed), request: requestInfo };
 }
 

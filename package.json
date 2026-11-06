@@ -2,7 +2,7 @@
   "name": "qaforge",
   "displayName": "QAForge",
   "description": "API + SQL testing and QA test case management: collections, environments, secrets, assertions, flows, data-driven runs and reports.",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "publisher": "kuzho",
   "repository": {
     "type": "git",
@@ -365,6 +365,11 @@
           "command": "qaforge.runItem",
           "when": "view == qaforge.collections || view == qaforge.testcases",
           "group": "0_run"
+        },
+        {
+          "command": "qaforge.runItem",
+          "when": "view == qaforge.collections || view == qaforge.testcases",
+          "group": "inline@1"
         },
         {
           "command": "qaforge.exportTestCaseZephyr",

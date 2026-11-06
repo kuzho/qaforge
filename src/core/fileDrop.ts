@@ -146,6 +146,7 @@ export async function executeFileDrop(
     };
     const bodyText = JSON.stringify(bodyObj);
 
+    const dropReqHeaders = { TargetDir: targetDir, Filename: filename };
     return {
       ok: true,
       status: 200,
@@ -155,6 +156,8 @@ export async function executeFileDrop(
       headers: { 'content-type': 'application/json' },
       body: bodyText,
       resolvedUrl: `file://${destPath.replace(/\\/g, '/')}`,
+      requestHeaders: dropReqHeaders,
+      requestBody: jsonStr,
     };
   } catch (err: any) {
     return {
@@ -162,6 +165,8 @@ export async function executeFileDrop(
       durationMs: Math.round(performance.now() - started),
       resolvedUrl: `file://${destPath.replace(/\\/g, '/')}`,
       error: `Failed writing drop file to "${destPath}": ${err.message}`,
+      requestHeaders: { TargetDir: targetDir, Filename: filename },
+      requestBody: typeof payload !== 'undefined' ? JSON.stringify(payload, null, 2) : undefined,
     };
   }
 }

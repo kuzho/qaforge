@@ -28,11 +28,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.7.0] - 2026-11-05
 
+### Added
+- **High-Fidelity Executive HTML Dossiers Across All Executions**:
+  - Every execution scope (individual request panel runs, single steps, partial steps, test cases, grouped test folders, and full collections) produces a complete, rich HTML report archived in `.qaforge/reports/`.
+  - Comprehensive request details: HTTP method badges, resolved endpoints/targets, outgoing request headers, and full request body payloads (with JSON syntax highlighting and binary indicators).
+  - Comprehensive response details: incoming response headers, HTTP status badges, duration, formatted JSON syntax highlighting, interactive sortable SQL tables, and preformatted blocks.
+  - Granular assertion breakdowns with pass/fail badges, expected vs actual values, and prominent error banners.
+  - Complete execution logs preserved per step.
+  - Interactive executive toolbar: Real-time search filter, verdict filters (All / Passed / Failed), and Expand / Collapse All controls.
+- **Hierarchical Cascading Execution for Grouped Test Cases**:
+  - Subfolder and group hierarchies under `.qaforge/testcases` are now indexed into the Test Explorer and QAForge tree.
+  - Running a folder or group automatically cascades and runs all nested test cases in sequence.
+  - Inline run action added to test case and collection tree nodes for instant execution.
 
-
-
-
+---
 
 ## [0.6.0] - 2025-07-14
 
