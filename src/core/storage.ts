@@ -118,7 +118,19 @@ export class Storage {
   }
 
   remove(target: string) {
-    fs.rmSync(target, { recursive: true, force: true });
+    if (!fs.existsSync(target)) return;
+    try {
+      fs.rmSync(target, { recursive: true, force: true });
+    } catch {
+      try {
+        if (fs.statSync(target).isDirectory()) {
+          for (const f of fs.readdirSync(target)) {
+            try { fs.rmSync(path.join(target, f), { recursive: true, force: true }); } catch { /* ignore */ }
+          }
+        }
+        fs.rmSync(target, { recursive: true, force: true });
+      } catch { /* ignore */ }
+    }
   }
 
   listEnvironments(): Environment[] {

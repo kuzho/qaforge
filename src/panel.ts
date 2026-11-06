@@ -118,7 +118,11 @@ export class RequestPanel {
           this.storage.collectionsDir,
         );
         const suite = makeSuite(msg.request.name, envName, started, [singleCase]);
-        writeReports(this.storage, suite);
+        try {
+          writeReports(this.storage, suite);
+        } catch (e) {
+          console.warn('[QAForge] writeReports failed:', e);
+        }
 
         this.onSaved(); // updates variables and reports tree view
         break;

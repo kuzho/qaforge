@@ -939,13 +939,40 @@ ${body}
 </html>`;
 }
 
+function safeMkdir(targetDir: string): void {
+  if (fs.existsSync(targetDir)) return;
+  try {
+    fs.mkdirSync(targetDir, { recursive: true });
+  } catch (err: any) {
+    if (err.code !== 'EEXIST' && !fs.existsSync(targetDir)) {
+      throw err;
+    }
+  }
+}
+
+function safeWrite(file: string, content: string): void {
+  try {
+    fs.writeFileSync(file, content, 'utf8');
+  } catch (err: any) {
+    if (err.code === 'EPERM' || err.code === 'EBUSY') {
+      try {
+        fs.writeFileSync(file, content, 'utf8');
+      } catch {
+        // Silently skip if locked by OneDrive or anti-virus rather than failing execution
+      }
+    } else {
+      throw err;
+    }
+  }
+}
+
 export function writeReports(storage: { reportsDir: string }, s: SuiteResult, formats = ['html', 'junit', 'json'], outDir?: string) {
   const dir = outDir ?? storage.reportsDir;
-  fs.mkdirSync(dir, { recursive: true });
+  safeMkdir(dir);
   const written: string[] = [];
   const write = (name: string, content: string) => {
     const file = path.join(dir, name);
-    fs.writeFileSync(file, content, 'utf8');
+    safeWrite(file, content);
     written.push(file);
   };
 
@@ -958,37 +985,41 @@ export function writeReports(storage: { reportsDir: string }, s: SuiteResult, fo
   if (formats.includes('junit')) write('last.junit.xml', junit);
   if (formats.includes('json')) write('last.json', json);
 
-  // Write timestamped archive for historical records
-  const ts = new Date(s.startedAt || Date.now()).toISOString().replace(/[:.]/g, '-');
-  const total = s.cases.length;
-  const passed = s.cases.filter((c) => c.passed).length;
-  const verdict = passed === total ? 'PASS' : 'FAIL';
-  const historyFolder = path.join(dir, 'history');
-  fs.mkdirSync(historyFolder, { recursive: true });
+  try {
+    // Write timestamped archive for historical records
+    const ts = new Date(s.startedAt || Date.now()).toISOString().replace(/[:.]/g, '-');
+    const total = s.cases.length;
+    const passed = s.cases.filter((c) => c.passed).length;
+    const verdict = passed === total ? 'PASS' : 'FAIL';
+    const historyFolder = path.join(dir, 'history');
+    safeMkdir(historyFolder);
 
-  const safeTarget = (s.name || 'Run').replace(/[<>:"/\\|?*]+/g, '-').trim();
-  const historyBase = `${ts}_${verdict}_${safeTarget}_${passed}of${total}`;
+    const safeTarget = (s.name || 'Run').replace(/[<>:"/\\|?*]+/g, '-').trim();
+    const historyBase = `${ts}_${verdict}_${safeTarget}_${passed}of${total}`;
 
-  // Determine category and entity folder (e.g. testcases/TC-MTP-PART-NUMBERS-001 or collections/MES-E2E)
-  let subDir = '';
-  if (safeTarget.startsWith('TC-') || (s.cases?.length === 1 && s.cases[0]?.id?.startsWith('TC-'))) {
-    const tcId = (s.cases?.length === 1 && s.cases[0]?.id) || safeTarget;
-    subDir = path.join('testcases', tcId.replace(/[<>:"/\\|?*]+/g, '-').trim());
-  } else if (safeTarget.toLowerCase().includes('suite')) {
-    subDir = path.join('suites', safeTarget);
-  } else {
-    subDir = path.join('collections', safeTarget);
-  }
-  const targetFolder = path.join(historyFolder, subDir);
-  fs.mkdirSync(targetFolder, { recursive: true });
-  if (formats.includes('html')) {
-    const histFile = path.join(targetFolder, `${historyBase}.html`);
-    fs.writeFileSync(histFile, html, 'utf8');
-    written.push(histFile);
-  }
-  if (formats.includes('json')) {
-    const histJson = path.join(targetFolder, `${historyBase}.json`);
-    fs.writeFileSync(histJson, json, 'utf8');
+    // Determine category and entity folder (e.g. testcases/TC-MTP-PART-NUMBERS-001 or collections/MES-E2E)
+    let subDir = '';
+    if (safeTarget.startsWith('TC-') || (s.cases?.length === 1 && s.cases[0]?.id?.startsWith('TC-'))) {
+      const tcId = (s.cases?.length === 1 && s.cases[0]?.id) || safeTarget;
+      subDir = path.join('testcases', tcId.replace(/[<>:"/\\|?*]+/g, '-').trim());
+    } else if (safeTarget.toLowerCase().includes('suite')) {
+      subDir = path.join('suites', safeTarget);
+    } else {
+      subDir = path.join('collections', safeTarget);
+    }
+    const targetFolder = path.join(historyFolder, subDir);
+    safeMkdir(targetFolder);
+    if (formats.includes('html')) {
+      const histFile = path.join(targetFolder, `${historyBase}.html`);
+      safeWrite(histFile, html);
+      written.push(histFile);
+    }
+    if (formats.includes('json')) {
+      const histJson = path.join(targetFolder, `${historyBase}.json`);
+      safeWrite(histJson, json);
+    }
+  } catch (histErr) {
+    console.warn('[QAForge] History report archive skipped:', histErr);
   }
 
   return written;

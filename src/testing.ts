@@ -252,7 +252,11 @@ export class QaTesting {
       }
 
       const suite = makeSuite(targetName, envName, started, results);
-      writeReports(this.storage, suite);
+      try {
+        writeReports(this.storage, suite);
+      } catch (e) {
+        console.warn('[QAForge] Failed writing reports:', e);
+      }
       this.onRunComplete?.();
       const act = await vscode.window.showInformationMessage(
         `QAForge ✅ ${passed}/${results.length} cases | ${passedSteps}/${totalSteps} steps passed`,

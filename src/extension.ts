@@ -696,85 +696,68 @@ export function activate(ctx: vscode.ExtensionContext) {
 
 
   reg('qaforge.deleteReport', (item?: QItem) =>
-
     guard(async () => {
-
       if (!item || !fs.existsSync(item.fsPath)) return;
-
-      const ok = await vscode.window.showWarningMessage(`Delete report "${item.label}"?`, { modal: true }, 'Delete');
-
+      const isDir = fs.statSync(item.fsPath).isDirectory();
+      const label = item.label || (isDir ? 'Group' : 'Report');
+      const ok = await vscode.window.showWarningMessage(`Delete ${isDir ? 'all reports in' : 'report'} "${label}"?`, { modal: true }, 'Delete');
       if (ok !== 'Delete') return;
 
-      fs.rmSync(item.fsPath, { force: true });
-
-      // Also delete companion json if exists
-
-      const jsonCompanion = item.fsPath.replace(/\.html$/, '.json');
-
-      if (fs.existsSync(jsonCompanion)) fs.rmSync(jsonCompanion, { force: true });
+      if (isDir) {
+        if (path.resolve(item.fsPath) === path.resolve(storage.historyDir)) {
+          for (const file of fs.readdirSync(item.fsPath)) {
+            try { fs.rmSync(path.join(item.fsPath, file), { recursive: true, force: true }); } catch { /* ignore */ }
+          }
+        } else {
+          try {
+            fs.rmSync(item.fsPath, { recursive: true, force: true });
+          } catch {
+            for (const file of fs.readdirSync(item.fsPath)) {
+              try { fs.rmSync(path.join(item.fsPath, file), { recursive: true, force: true }); } catch { /* ignore */ }
+            }
+          }
+        }
+      } else {
+        try { fs.rmSync(item.fsPath, { force: true }); } catch { /* ignore */ }
+        const jsonCompanion = item.fsPath.replace(/\.html$/, '.json');
+        if (fs.existsSync(jsonCompanion)) {
+          try { fs.rmSync(jsonCompanion, { force: true }); } catch { /* ignore */ }
+        }
+      }
 
       reportsProvider.refresh();
-
       vscode.window.showInformationMessage('Report deleted.');
-
     }),
-
   );
-
-
 
   reg('qaforge.filterReports', () =>
-
     guard(async () => {
-
       const current = reportsProvider.getFilter();
-
       const input = await vscode.window.showInputBox({
-
         prompt: 'Search Execution History (Filter by Test Case ID, Collection, PASS, FAIL, Date)',
-
         value: current,
-
         placeHolder: 'e.g. TC-IPE-001, PASS, 2026-11, Primary-Scan...',
-
       });
-
       if (input === undefined) return;
-
       reportsProvider.setFilter(input);
-
     }),
-
   );
 
-
-
   reg('qaforge.clearReportsFilter', () => {
-
     reportsProvider.setFilter('');
-
   });
 
-
-
   reg('qaforge.clearReports', () =>
-
     guard(async () => {
-
       if (!fs.existsSync(storage.historyDir)) return;
-
       const ok = await vscode.window.showWarningMessage('Delete ALL historical reports?', { modal: true }, 'Delete All');
-
       if (ok !== 'Delete All') return;
-
-      fs.rmSync(storage.historyDir, { recursive: true, force: true });
-
+      for (const file of fs.readdirSync(storage.historyDir)) {
+        try { fs.rmSync(path.join(storage.historyDir, file), { recursive: true, force: true }); } catch { /* ignore */ }
+      }
       reportsProvider.refresh();
-
       vscode.window.showInformationMessage('All historical reports cleared.');
-
     }),
-
   );
 
 
