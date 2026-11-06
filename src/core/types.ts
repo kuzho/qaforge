@@ -164,6 +164,12 @@ export interface GherkinCriteria {
   then: string;
 }
 
+export interface TestCaseParameter {
+  name: string;
+  defaultValue?: string;
+  description?: string;
+}
+
 export interface TestCaseDef {
   id: string;
   title: string;
@@ -174,6 +180,7 @@ export interface TestCaseDef {
   tags?: string[];
   preconditions?: string;
   criteria?: GherkinCriteria;
+  parameters?: TestCaseParameter[];
   variables?: Record<string, string>;
   /** inline rows: the case runs once per row, row values become variables */
   data?: Record<string, string>[];

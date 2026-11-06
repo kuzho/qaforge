@@ -289,19 +289,28 @@ export async function runTestCase(
   let manualSteps = 0;
 
   const stop = tc.stopOnFailure !== false;
-
   const vars = { __qaforgeRoot: storage.root, ...envVars };
 
-
+  const INFRA_KEYS = new Set(['dbserver', 'dbuser', 'dbpassword', 'dbname', 'dbport', 'mtp_api', 'env', 'clientid', 'clientsecret', 'tokenurl']);
+  const paramDefaults: Record<string, string> = {};
+  const tcParams = tc.parameters;
+  if (Array.isArray(tcParams)) {
+    for (const p of tcParams) {
+      if (p?.name && p?.defaultValue !== undefined) {
+        const val = String(p.defaultValue).trim();
+        const lowerName = p.name.toLowerCase();
+        if (!val || val.startsWith('[') || val.startsWith('{{')) continue;
+        if (INFRA_KEYS.has(lowerName) && envVars[p.name]) continue;
+        paramDefaults[p.name] = val;
+      }
+    }
+  }
+  const caseVars: Record<string, string> = { ...paramDefaults, ...(tc.variables ?? {}) };
 
   for (let i = 0; i < rows.length; i++) {
-
-    const runtime: Record<string, string> = opts.runtime ?? { ...(tc.variables ?? {}), ...rows[i] };
-
+    const runtime: Record<string, string> = opts.runtime ?? { ...caseVars, ...rows[i] };
     if (opts.runtime) {
-
-      Object.assign(opts.runtime, tc.variables ?? {}, rows[i]);
-
+      Object.assign(opts.runtime, caseVars, rows[i]);
     }
 
     const results: RequestResult[] = [];
