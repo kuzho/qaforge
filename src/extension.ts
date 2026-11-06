@@ -703,26 +703,29 @@ export function activate(ctx: vscode.ExtensionContext) {
       const ok = await vscode.window.showWarningMessage(`Delete ${isDir ? 'all reports in' : 'report'} "${label}"?`, { modal: true }, 'Delete');
       if (ok !== 'Delete') return;
 
-      if (isDir) {
-        if (path.resolve(item.fsPath) === path.resolve(storage.historyDir)) {
-          for (const file of fs.readdirSync(item.fsPath)) {
-            try { fs.rmSync(path.join(item.fsPath, file), { recursive: true, force: true }); } catch { /* ignore */ }
-          }
-        } else {
-          try {
-            fs.rmSync(item.fsPath, { recursive: true, force: true });
-          } catch {
-            for (const file of fs.readdirSync(item.fsPath)) {
-              try { fs.rmSync(path.join(item.fsPath, file), { recursive: true, force: true }); } catch { /* ignore */ }
+      const deleteSafe = (target: string) => {
+        if (!fs.existsSync(target)) return;
+        try {
+          const stat = fs.statSync(target);
+          if (stat.isDirectory()) {
+            const entries = fs.readdirSync(target, { withFileTypes: true });
+            for (const e of entries) {
+              deleteSafe(path.join(target, e.name));
             }
+            if (path.resolve(target) !== path.resolve(storage.historyDir)) {
+              try { fs.rmdirSync(target); } catch { /* ignore if locked */ }
+            }
+          } else {
+            try { fs.chmodSync(target, 0o666); } catch { /* ignore */ }
+            try { fs.unlinkSync(target); } catch { /* ignore */ }
           }
-        }
-      } else {
-        try { fs.rmSync(item.fsPath, { force: true }); } catch { /* ignore */ }
-        const jsonCompanion = item.fsPath.replace(/\.html$/, '.json');
-        if (fs.existsSync(jsonCompanion)) {
-          try { fs.rmSync(jsonCompanion, { force: true }); } catch { /* ignore */ }
-        }
+        } catch { /* ignore */ }
+      };
+
+      deleteSafe(item.fsPath);
+      const jsonCompanion = item.fsPath.replace(/\.html$/, '.json');
+      if (fs.existsSync(jsonCompanion)) {
+        deleteSafe(jsonCompanion);
       }
 
       reportsProvider.refresh();
@@ -749,12 +752,46 @@ export function activate(ctx: vscode.ExtensionContext) {
 
   reg('qaforge.clearReports', () =>
     guard(async () => {
-      if (!fs.existsSync(storage.historyDir)) return;
+      const histDir = storage.historyDir;
+      if (!fs.existsSync(histDir)) {
+        vscode.window.showInformationMessage('No reports to clear.');
+        return;
+      }
       const ok = await vscode.window.showWarningMessage('Delete ALL historical reports?', { modal: true }, 'Delete All');
       if (ok !== 'Delete All') return;
-      for (const file of fs.readdirSync(storage.historyDir)) {
-        try { fs.rmSync(path.join(storage.historyDir, file), { recursive: true, force: true }); } catch { /* ignore */ }
+
+      const clearDirContents = (dir: string) => {
+        if (!fs.existsSync(dir)) return;
+        try {
+          const entries = fs.readdirSync(dir, { withFileTypes: true });
+          for (const entry of entries) {
+            const fullPath = path.join(dir, entry.name);
+            try {
+              if (entry.isDirectory()) {
+                clearDirContents(fullPath);
+                try { fs.rmdirSync(fullPath); } catch { /* ignore if junction */ }
+              } else {
+                try { fs.chmodSync(fullPath, 0o666); } catch { /* ignore */ }
+                try { fs.unlinkSync(fullPath); } catch { /* ignore */ }
+              }
+            } catch {
+              try { fs.rmSync(fullPath, { recursive: true, force: true }); } catch { /* ignore */ }
+            }
+          }
+        } catch { /* ignore */ }
+      };
+
+      clearDirContents(histDir);
+
+      // Also clean up lingering last.* files in reportsDir
+      for (const lastFile of ['last.html', 'last.json', 'last.junit.xml']) {
+        const p = path.join(storage.reportsDir, lastFile);
+        if (fs.existsSync(p)) {
+          try { fs.chmodSync(p, 0o666); } catch { /* ignore */ }
+          try { fs.unlinkSync(p); } catch { /* ignore */ }
+        }
       }
+
       reportsProvider.refresh();
       vscode.window.showInformationMessage('All historical reports cleared.');
     }),
