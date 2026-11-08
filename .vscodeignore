@@ -4,4 +4,6 @@ node_modules/**
 esbuild.mjs
 tsconfig.json
 **/*.map
+.qaforge/**
+*.vsix
 
